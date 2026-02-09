@@ -4,7 +4,7 @@ import requests
 import random
 from datetime import datetime, timedelta
 import pandas as pd
-import openai
+from openai import OpenAI
 
 # =====================
 # 기본 설정
@@ -62,8 +62,10 @@ mood = st.slider("😊 오늘의 기분", 1, 10, 5)
 
 city = st.selectbox(
     "🌍 도시 선택",
-    ["Seoul", "Busan", "Incheon", "Daegu", "Daejeon",
-     "Gwangju", "Suwon", "Ulsan", "Jeju", "Changwon"]
+    [
+        "Seoul", "Busan", "Incheon", "Daegu", "Daejeon",
+        "Gwangju", "Suwon", "Ulsan", "Jeju", "Changwon"
+    ]
 )
 
 coach_style = st.radio(
@@ -138,18 +140,18 @@ def generate_report(style, habits_done, mood, weather, breed):
     if not openai_api_key:
         return "❗ OpenAI API Key를 입력해주세요."
 
-    openai.api_key = openai_api_key
+    client = OpenAI(api_key=openai_api_key)
 
     system_prompts = {
         "스파르타 코치": "너는 엄격하고 직설적인 스파르타 코치다.",
-        "따뜻한 멘토": "너는 공감 능력이 뛰어난 따뜻한 멘토다.",
-        "게임 마스터": "너는 RPG 세계관의 게임 마스터다."
+        "따뜻한 멘토": "너는 공감 능력이 뛰어나고 따뜻하게 조언하는 멘토다.",
+        "게임 마스터": "너는 RPG 세계관에서 플레이어를 이끄는 게임 마스터다."
     }
 
     user_prompt = f"""
 오늘 습관 달성 개수: {habits_done}/5
 오늘 기분: {mood}/10
-날씨: {weather}
+날씨 정보: {weather}
 강아지 품종: {breed}
 
 아래 형식으로 리포트를 작성해줘:
@@ -161,14 +163,15 @@ def generate_report(style, habits_done, mood, weather, breed):
 """
 
     try:
-        res = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-5-mini",
             messages=[
                 {"role": "system", "content": system_prompts[style]},
                 {"role": "user", "content": user_prompt}
             ]
         )
-        return res.choices[0].message.content
+        return response.choices[0].message.content
+
     except Exception as e:
         return f"❌ 리포트 생성 실패: {e}"
 
