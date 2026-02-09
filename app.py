@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 from openai import OpenAI
 
-# =====================
+# ==================================================
 # 기본 설정
-# =====================
+# ==================================================
 st.set_page_config(
     page_title="AI 습관 트래커",
     page_icon="📊",
@@ -17,30 +17,27 @@ st.set_page_config(
 
 st.title("📊 AI 습관 트래커")
 
-# =====================
-# 사이드바
-# =====================
+# ==================================================
+# 사이드바 - API 키
+# ==================================================
 with st.sidebar:
     st.header("🔑 API 설정")
     openai_api_key = st.text_input("OpenAI API Key", type="password")
     weather_api_key = st.text_input("OpenWeatherMap API Key", type="password")
 
-# =====================
-# 세션 상태 초기화
-# =====================
+# ==================================================
+# 세션 상태 초기화 (데모 6일 + 오늘)
+# ==================================================
 if "history" not in st.session_state:
-    demo_dates = [datetime.now() - timedelta(days=i) for i in range(6, 0, -1)]
+    demo_days = [datetime.now() - timedelta(days=i) for i in range(6, 0, -1)]
     st.session_state.history = [
-        {
-            "date": d.strftime("%m/%d"),
-            "achieved": random.randint(2, 5)
-        }
-        for d in demo_dates
+        {"date": d.strftime("%m/%d"), "achieved": random.randint(2, 5)}
+        for d in demo_days
     ]
 
-# =====================
+# ==================================================
 # 습관 체크인 UI
-# =====================
+# ==================================================
 st.subheader("✅ 오늘의 습관 체크인")
 
 habits = [
@@ -73,25 +70,25 @@ coach_style = st.radio(
     ["스파르타 코치", "따뜻한 멘토", "게임 마스터"]
 )
 
-# =====================
+# ==================================================
 # 달성률 계산
-# =====================
+# ==================================================
 achieved_count = sum(checked)
 achievement_rate = int((achieved_count / len(habits)) * 100)
 
 st.subheader("📈 오늘의 요약")
-m1, m2, m3 = st.columns(3)
-m1.metric("달성률", f"{achievement_rate}%")
-m2.metric("달성 습관", f"{achieved_count}/5")
-m3.metric("기분", f"{mood}/10")
+c1, c2, c3 = st.columns(3)
+c1.metric("달성률", f"{achievement_rate}%")
+c2.metric("달성 습관", f"{achieved_count}/5")
+c3.metric("기분", f"{mood}/10")
 
-# =====================
+# ==================================================
 # 기록 저장 & 차트
-# =====================
-today_label = datetime.now().strftime("%m/%d")
-if not any(h["date"] == today_label for h in st.session_state.history):
+# ==================================================
+today = datetime.now().strftime("%m/%d")
+if not any(h["date"] == today for h in st.session_state.history):
     st.session_state.history.append(
-        {"date": today_label, "achieved": achieved_count}
+        {"date": today, "achieved": achieved_count}
     )
 
 df = pd.DataFrame(st.session_state.history)
@@ -99,27 +96,36 @@ df = pd.DataFrame(st.session_state.history)
 st.subheader("📊 최근 7일 습관 달성")
 st.bar_chart(df.set_index("date"))
 
-# =====================
+# ==================================================
 # API 함수
-# =====================
+# ==================================================
 def get_weather(city, api_key):
     if not api_key:
         return None
+
     try:
         url = "https://api.openweathermap.org/data/2.5/weather"
         params = {
-            "q": city,
+            "q": f"{city},KR",   # ⭐ 한국 국가 코드 필수
             "appid": api_key,
             "units": "metric",
             "lang": "kr"
         }
+
         r = requests.get(url, params=params, timeout=10)
+
+        if r.status_code != 200:
+            st.warning(f"날씨 API 오류: {r.text}")
+            return None
+
         data = r.json()
         return {
             "desc": data["weather"][0]["description"],
             "temp": data["main"]["temp"]
         }
-    except Exception:
+
+    except Exception as e:
+        st.error(f"날씨 요청 실패: {e}")
         return None
 
 
@@ -133,9 +139,9 @@ def get_dog_image():
     except Exception:
         return None, None
 
-# =====================
+# ==================================================
 # AI 리포트 생성
-# =====================
+# ==================================================
 def generate_report(style, habits_done, mood, weather, breed):
     if not openai_api_key:
         return "❗ OpenAI API Key를 입력해주세요."
@@ -144,8 +150,8 @@ def generate_report(style, habits_done, mood, weather, breed):
 
     system_prompts = {
         "스파르타 코치": "너는 엄격하고 직설적인 스파르타 코치다.",
-        "따뜻한 멘토": "너는 공감 능력이 뛰어나고 따뜻하게 조언하는 멘토다.",
-        "게임 마스터": "너는 RPG 세계관에서 플레이어를 이끄는 게임 마스터다."
+        "따뜻한 멘토": "너는 공감 능력이 뛰어나고 따뜻한 멘토다.",
+        "게임 마스터": "너는 RPG 세계관의 게임 마스터다."
     }
 
     user_prompt = f"""
@@ -175,25 +181,25 @@ def generate_report(style, habits_done, mood, weather, breed):
     except Exception as e:
         return f"❌ 리포트 생성 실패: {e}"
 
-# =====================
+# ==================================================
 # 결과 표시
-# =====================
+# ==================================================
 st.subheader("🤖 AI 코치 리포트")
 
 if st.button("컨디션 리포트 생성"):
     weather = get_weather(city, weather_api_key)
     dog_img, breed = get_dog_image()
 
-    c1, c2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-    with c1:
+    with col1:
         st.markdown("### 🌦 날씨")
         if weather:
-            st.write(f"{weather['desc']} / {weather['temp']}°C")
+            st.success(f"{weather['desc']} / {weather['temp']}°C")
         else:
             st.write("날씨 정보 없음")
 
-    with c2:
+    with col2:
         st.markdown("### 🐶 오늘의 강아지")
         if dog_img:
             st.image(dog_img, use_column_width=True)
@@ -215,12 +221,12 @@ if st.button("컨디션 리포트 생성"):
     st.markdown("### 📢 공유용 텍스트")
     st.code(report)
 
-# =====================
+# ==================================================
 # API 안내
-# =====================
+# ==================================================
 with st.expander("ℹ️ API 안내"):
     st.markdown("""
 - **OpenAI API**: https://platform.openai.com/
 - **OpenWeatherMap API**: https://openweathermap.org/api
 - **Dog CEO API**: https://dog.ceo/dog-api/
-    """)
+""")
